@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-class REPORTING_STATE(Enum):
+class ReportingState(Enum):
   PRE_REPORTING = auto()
   DESIGNATED_REPORTING = auto()
   OPEN_REPORTING = auto()

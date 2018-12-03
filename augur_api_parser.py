@@ -28,6 +28,10 @@ class AugurApiParser:
   def build_constructor(self):
     # Add Enum import if needed.
     if self._class_type is 'Enum':
+      class_name = []
+      for x in self._class_name.split('_'):
+        class_name.append(x.capitalize())
+      self._class_name = ''.join(class_name)
       constructor_list = [
         'from enum import Enum, auto\n\n',
         'class {}(Enum):\n'.format(self._class_name)
