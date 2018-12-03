@@ -279,7 +279,7 @@ class MarketInfo:
     '''Contract address of the Fee Window the Market is in, as a hexadecimal
     str.
 
-    Returns decimal.Decimal
+    Returns str
     '''
     return self._fee_window
 
