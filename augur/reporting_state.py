@@ -11,5 +11,3 @@ class REPORTING_STATE(Enum):
   FORKING = auto()
   AWAITING_NO_REPORT_MIGRATION = auto()
   AWAITING_FORK_MIGRATION = auto()
-
-

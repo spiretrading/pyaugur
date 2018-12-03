@@ -407,5 +407,3 @@ class MarketInfo:
     Returns list<OutcomeInfo>
     '''
     return self._outcomes
-
-

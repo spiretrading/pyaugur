@@ -18,5 +18,3 @@ class NormalizedPayout:
     Returns list<int or str>
     '''
     return self._payout
-
-

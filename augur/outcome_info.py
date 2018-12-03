@@ -39,5 +39,3 @@ class OutcomeInfo:
     Returns str or None
     '''
     return self._description
-
-
