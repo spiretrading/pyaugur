@@ -17,7 +17,7 @@ class OutcomeInfo:
   def volume(self):
     '''Trading volume for this Outcome.
 
-    Returns str
+    Returns decimal.Decimal
     '''
     return self._volume
 

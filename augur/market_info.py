@@ -80,7 +80,7 @@ class MarketInfo:
   def numOutcomes(self):
     '''Total possible Outcomes for the Market.
 
-    Returns decimal.Decimal
+    Returns int
     '''
     return self._numOutcomes
 
@@ -90,7 +90,7 @@ class MarketInfo:
     Categorical Markets, this is 0 ETH. For Scalar Markets, this is the bottom
     end of the range set by the Market creator.
 
-    Returns datetime.datetime
+    Returns decimal.Decimal
     '''
     return self._minPrice
 
@@ -219,7 +219,7 @@ class MarketInfo:
   def tags(self):
     '''Names with which the Market has been tagged.
 
-    Returns list<(str or None)>
+    Returns list<(str)> or None
     '''
     return self._tags
 
@@ -259,7 +259,7 @@ class MarketInfo:
   def forking(self):
     '''Whether the Market has Forked.
 
-    Returns bool or int
+    Returns bool
     '''
     return self._forking
 
@@ -269,7 +269,7 @@ class MarketInfo:
     (i.e., the Market is not Finalized, and the Forked Market in its Universe is
     Finalized).
 
-    Returns bool or int
+    Returns bool
     '''
     return self._needsMigration
 
@@ -362,7 +362,7 @@ class MarketInfo:
     '''Size of the Designated Reporter Stake, in attoETH, that the Designated
     Reporter must pay to submit the Designated Report for this Market.
 
-    Returns str
+    Returns decimal.Decimal
     '''
     return self._designatedReportStake
 

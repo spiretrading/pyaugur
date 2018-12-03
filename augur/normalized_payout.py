@@ -7,7 +7,7 @@ class NormalizedPayout:
   def isInvalid(self):
     '''Whether the Outcome is Invalid.
 
-    Returns bool or int
+    Returns bool
     '''
     return self._isInvalid
 
