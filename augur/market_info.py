@@ -227,7 +227,7 @@ class MarketInfo:
   def tags(self):
     '''Names with which the Market has been tagged.
 
-    Returns list[str] or None
+    Returns list[str] or list[]
     '''
     return self._tags
 
