@@ -1,4 +1,6 @@
 class NormalizedPayout:
+  '''Contains a market's outcome payout distribution.'''
+
   def __init__(self, is_invalid, payout):
     self._is_invalid = is_invalid
     self._payout = payout
