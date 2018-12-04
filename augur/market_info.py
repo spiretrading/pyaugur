@@ -1,9 +1,20 @@
 from enum import Enum, auto
 
 class MarketInfo:
+  '''Contains the details for an individual Augur market.'''
+
   class Type(Enum):
+    '''Indicates type of an Augur market.'''
+
+    '''A market with only two potential outcomes.'''
     YES_NO = auto()
+
+    '''A market containing more than two potential outcomes, but no more than 8.
+    '''
     CATEGORICAL = auto()
+
+    '''A market containing a wide range of potential outcomes between defined
+    upper and lower boundaries.'''
     SCALAR = auto()
 
   def __init__(self, id, universe, market_type, num_outcomes, min_price,
