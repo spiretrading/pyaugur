@@ -1,7 +1,6 @@
 import re
 import sys
 import textwrap
-import unicodedata
 
 class AugurApiParser:
   def __init__(self):

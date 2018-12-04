@@ -15,6 +15,6 @@ class NormalizedPayout:
   def payout(self):
     '''Payout Set for the Dispute Crowdsourcer.
 
-    Returns list<int or str>
+    Returns list[int or decimal.Decimal]
     '''
     return self._payout

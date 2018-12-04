@@ -1,4 +1,11 @@
+from enum import Enum, auto
+
 class MarketInfo:
+  class Type(Enum):
+    YES_NO = auto()
+    CATEGORICAL = auto()
+    SCALAR = auto()
+
   def __init__(self, id, universe, market_type, num_outcomes, min_price,
       max_price, cumulative_scale, author, creation_time, creation_block,
       creation_fee, settlement_fee, reporting_fee_rate, market_creator_fee_rate,
@@ -220,7 +227,7 @@ class MarketInfo:
   def tags(self):
     '''Names with which the Market has been tagged.
 
-    Returns list<(str or None)>
+    Returns list[str] or None
     '''
     return self._tags
 
@@ -252,7 +259,7 @@ class MarketInfo:
   def reporting_state(self):
     '''Reporting state name.
 
-    Returns REPORTING_STATE or None
+    Returns ReportingState or None
     '''
     return self._reporting_state
 
@@ -405,6 +412,6 @@ class MarketInfo:
   def outcomes(self):
     '''Array of OutcomeInfo objects.
 
-    Returns list<OutcomeInfo>
+    Returns list[OutcomeInfo]
     '''
     return self._outcomes
