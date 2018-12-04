@@ -89,9 +89,9 @@ class MarketInfo:
 
   @property
   def market_type(self):
-    '''Type of Market ("yesNo", "categorical", or "scalar").
+    '''Type of Market (YES_NO, CATEGORICAL, SCALAR).
 
-    Returns str
+    Returns MarketInfo.Type
     '''
     return self._market_type
 
