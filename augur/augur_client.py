@@ -36,17 +36,16 @@ class AugurClient:
     '''
     self._require_is_open()
     await self._send_json_rpc('getMarketsInfo', marketIds=[id])
-    raw_market_info = (await self._get_response())[0]
-    if raw_market_info is None:
+    response_data = (await self._get_response())[0]
+    if response_data is None:
       return None
     # MarketInfo accepts parameters as snake case, however the node will send
     # a response with keys as camel case. Translating the dict to snake case
     # makes it easier to create a MarketInfo object.
-    translated_dict = {
-      self._to_snake_case(key): value for key, value in raw_market_info.items()
+    market_info_dict = {
+      self._to_snake_case(key): value for key, value in response_data.items()
     }
-    market_info = MarketInfo(**translated_dict)
-    return market_info
+    return MarketInfo(**market_info_dict)
 
   async def open(self):
     '''Connects to an Augur node.
@@ -59,8 +58,7 @@ class AugurClient:
         'ws://{}:{}'.format(self._hostname, str(self._port)))
       self._is_open = True
     except (websockets.exceptions.InvalidURI,
-            websockets.exceptions.InvalidHandshake,
-            OSError) as ws_error:
+            websockets.exceptions.InvalidHandshake, OSError) as ws_error:
       raise IOError(ws_error)
 
   def close(self):
@@ -88,9 +86,9 @@ class AugurClient:
   async def _get_response(self):
     try:
       response = json.loads(await self._node.recv())
-    except websockets.exceptions.ConnectionClosed as error:
-      raise IOError(error)
-    return response['result']
+      return response['result']
+    except websockets.exceptions.ConnectionClosed as response_error:
+      raise IOError(response_error)
 
   def _to_snake_case(self, text):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', text)
