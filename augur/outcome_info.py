@@ -38,6 +38,6 @@ class OutcomeInfo:
   def description(self):
     '''Description for the Outcome.
 
-    Returns str or ''
+    Returns str
     '''
     return self._description
