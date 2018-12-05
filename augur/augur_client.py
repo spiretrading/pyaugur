@@ -1,7 +1,6 @@
 import json
 import re
 
-import requests
 import websockets
 
 from .market_info import MarketInfo
@@ -31,6 +30,9 @@ class AugurClient:
     Returns:
       MarketInfo: The MarketInfo object containing details of the specific
                   market.
+
+    Raises:
+      IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
     await self._send_json_rpc('getMarketsInfo', marketIds=[id])
@@ -52,9 +54,9 @@ class AugurClient:
     Raises:
       IOError: If there is an issue connecting to the Augur node.
     '''
-    augur_ws_url = ''.join(['ws://', self._hostname, ':', str(self._port)])
     try:
-      self._node = await websockets.connect(augur_ws_url)
+      self._node = await websockets.connect(
+        'ws://{}:{}'.format(self._hostname, str(self._port)))
       self._is_open = True
     except (websockets.exceptions.InvalidURI,
             websockets.exceptions.InvalidHandshake,
