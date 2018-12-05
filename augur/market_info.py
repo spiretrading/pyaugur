@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import auto, Enum
 
 from datetime import datetime
 from decimal import Decimal
@@ -56,7 +56,7 @@ class MarketInfo:
     self._volume = Decimal(volume)
     self._open_interest = Decimal(open_interest)
     self._outstanding_shares = Decimal(outstanding_shares)
-    self._reporting_state = reporting_state
+    self._reporting_state = ReportingState[reporting_state]
     self._forking = forking
     self._needs_migration = needs_migration
     self._fee_window = fee_window
