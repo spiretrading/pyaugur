@@ -1,7 +1,6 @@
 import re
 import sys
 import textwrap
-import unicodedata
 
 class AugurApiParser:
   def __init__(self):
@@ -18,6 +17,8 @@ class AugurApiParser:
         self._class_type = 'Enum'
       elif process_properties and len(line) > 2:
         property_name, property_type, *property_description = line.split()
+        if self._class_type is not 'Enum':
+          property_name = self.camel_case_to_snake_case(property_name)
         properties_dict = {
           'type': property_type.strip('()').replace('|', ' or '),
           'desc': ' '.join(property_description)}
@@ -28,6 +29,10 @@ class AugurApiParser:
   def build_constructor(self):
     # Add Enum import if needed.
     if self._class_type is 'Enum':
+      class_name = []
+      for x in self._class_name.split('_'):
+        class_name.append(x.capitalize())
+      self._class_name = ''.join(class_name)
       constructor_list = [
         'from enum import Enum, auto\n\n',
         'class {}(Enum):\n'.format(self._class_name)
@@ -123,6 +128,10 @@ class AugurApiParser:
     for ts_types, py_types in python_types:
       text = text.replace(ts_types, py_types)
     return text
+
+  def camel_case_to_snake_case(self, text):
+    text_part = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', text)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', text_part).lower()
 
 if __name__ == '__main__':
   augur_api_parser = AugurApiParser()
