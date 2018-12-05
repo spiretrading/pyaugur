@@ -1,9 +1,13 @@
+from datetime import datetime
+from decimal import Decimal
 import json
 import re
 
 import websockets
 
 from .market_info import MarketInfo
+from .normalized_payout import NormalizedPayout
+from .reporting_state import ReportingState
 
 class AugurClient:
   '''Client for connecting and interacting with an Augur Node.'''
@@ -39,12 +43,47 @@ class AugurClient:
     response_data = (await self._get_response())[0]
     if response_data is None:
       return None
-    # MarketInfo accepts parameters as snake case, however the node will send
-    # a response with keys as camel case. Translating the dict to snake case
-    # makes it easier to create a MarketInfo object.
-    market_info_dict = {
-      self._to_snake_case(key): value for key, value in response_data.items()
+    market_info_dict = {}
+    casting_map = {
+      'market_type': MarketInfo.Type,
+      'min_price': Decimal,
+      'max_price': Decimal,
+      'cumulative_scale': Decimal,
+      'creation_time': datetime.fromtimestamp,
+      'creation_fee': Decimal,
+      'settlement_fee': Decimal,
+      'reporting_fee_rate': Decimal,
+      'market_creator_fee_rate': Decimal,
+      'market_creator_fees_balance': Decimal,
+      'initial_report_size': Decimal,
+      'volume': Decimal,
+      'open_interest': Decimal,
+      'outstanding_shares': Decimal,
+      'reporting_state': ReportingState,
+      'end_time': datetime.fromtimestamp,
+      'finalization_time': datetime.fromtimestamp,
+      'last_trade_time': datetime.fromtimestamp,
+      'designated_report_stake': Decimal,
+      'num_ticks': Decimal,
+      'tick_size': Decimal,
+      'consensus': NormalizedPayout,
     }
+    for key, value in response_data.items():
+      new_key = self._to_snake_case(key)
+      if value is None:
+        market_info_dict[new_key] = None
+      else:
+        to_cast_type = casting_map.get(new_key, None)
+        if to_cast_type is None:
+          new_value = value
+        elif (to_cast_type is MarketInfo.Type or
+            to_cast_type is ReportingState):
+          new_value = to_cast_type[value.upper()]
+        elif to_cast_type is NormalizedPayout:
+          new_value = to_cast_type(*value)
+        else:
+          new_value = to_cast_type(value)
+        market_info_dict[new_key] = new_value
     return MarketInfo(**market_info_dict)
 
   async def open(self):
