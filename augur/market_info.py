@@ -1,9 +1,4 @@
-from enum import auto, Enum
-
-from datetime import datetime
-from decimal import Decimal
-
-from .reporting_state import ReportingState
+from enum import Enum, auto
 
 class MarketInfo:
   '''Contains the details for an individual Market.'''
@@ -12,7 +7,7 @@ class MarketInfo:
     '''Indicates the type of a Market.'''
 
     '''A Market with only two potential outcomes.'''
-    YES_NO = auto()
+    YESNO = auto()
 
     '''A Market containing more than two potential outcomes, but no more than 8.
     '''
@@ -24,55 +19,55 @@ class MarketInfo:
 
   def __init__(self, id, universe, market_type, num_outcomes, min_price,
       max_price, cumulative_scale, author, creation_time, creation_block,
-      creation_fee, settlement_fee, reporting_fee_rate,
-      market_creator_fee_rate, market_creator_fees_balance,
-      market_creator_mailbox, market_creator_mailbox_owner,
-      initial_report_size, category, tags, volume, open_interest,
-      outstanding_shares, reporting_state, forking, needs_migration,
-      fee_window, end_time, finalization_block_number, finalization_time,
-      last_trade_block_number, last_trade_time, description, details,
-      scalar_denomination, designated_reporter, designated_report_stake,
-      resolution_source, num_ticks, tick_size, consensus, outcomes):
+      creation_fee, settlement_fee, reporting_fee_rate, market_creator_fee_rate,
+      market_creator_fees_balance, market_creator_mailbox,
+      market_creator_mailbox_owner, initial_report_size, category, tags, volume,
+      open_interest, outstanding_shares, reporting_state, forking,
+      needs_migration, fee_window, end_time, finalization_block_number,
+      finalization_time, last_trade_block_number, last_trade_time, description,
+      details, scalar_denomination, designated_reporter,
+      designated_report_stake, resolution_source, num_ticks, tick_size,
+      consensus, outcomes):
     self._id = id
     self._universe = universe
     self._market_type = market_type
     self._num_outcomes = num_outcomes
-    self._min_price = Decimal(min_price)
-    self._max_price = Decimal(max_price)
-    self._cumulative_scale = Decimal(cumulative_scale)
+    self._min_price = min_price
+    self._max_price = max_price
+    self._cumulative_scale = cumulative_scale
     self._author = author
-    self._creation_time = datetime.fromtimestamp(creation_time)
+    self._creation_time = creation_time
     self._creation_block = creation_block
-    self._creation_fee = Decimal(creation_fee)
-    self._settlement_fee = Decimal(settlement_fee)
-    self._reporting_fee_rate = Decimal(reporting_fee_rate)
-    self._market_creator_fee_rate = Decimal(market_creator_fee_rate)
-    self._market_creator_fees_balance = Decimal(market_creator_fees_balance)
+    self._creation_fee = creation_fee
+    self._settlement_fee = settlement_fee
+    self._reporting_fee_rate = reporting_fee_rate
+    self._market_creator_fee_rate = market_creator_fee_rate
+    self._market_creator_fees_balance = market_creator_fees_balance
     self._market_creator_mailbox = market_creator_mailbox
     self._market_creator_mailbox_owner = market_creator_mailbox_owner
-    self._initial_report_size = Decimal(initial_report_size)
+    self._initial_report_size = initial_report_size
     self._category = category
     self._tags = tags
-    self._volume = Decimal(volume)
-    self._open_interest = Decimal(open_interest)
-    self._outstanding_shares = Decimal(outstanding_shares)
-    self._reporting_state = ReportingState[reporting_state]
+    self._volume = volume
+    self._open_interest = open_interest
+    self._outstanding_shares = outstanding_shares
+    self._reporting_state = reporting_state
     self._forking = forking
     self._needs_migration = needs_migration
     self._fee_window = fee_window
-    self._end_time = datetime.fromtimestamp(end_time)
+    self._end_time = end_time
     self._finalization_block_number = finalization_block_number
-    self._finalization_time = Decimal(finalization_time)
+    self._finalization_time = finalization_time
     self._last_trade_block_number = last_trade_block_number
     self._last_trade_time = last_trade_time
     self._description = description
     self._details = details
     self._scalar_denomination = scalar_denomination
     self._designated_reporter = designated_reporter
-    self._designated_report_stake = Decimal(designated_report_stake)
+    self._designated_report_stake = designated_report_stake
     self._resolution_source = resolution_source
-    self._num_ticks = Decimal(num_ticks)
-    self._tick_size = Decimal(tick_size)
+    self._num_ticks = num_ticks
+    self._tick_size = tick_size
     self._consensus = consensus
     self._outcomes = outcomes
 
@@ -290,8 +285,8 @@ class MarketInfo:
   @property
   def needs_migration(self):
     '''Whether the Market needs to be migrated to its Universe's Child Universe
-    (i.e., the Market is not Finalized, and the Forked Market in its Universe
-    is Finalized).
+    (i.e., the Market is not Finalized, and the Forked Market in its Universe is
+    Finalized).
 
     Returns bool
     '''
@@ -315,7 +310,7 @@ class MarketInfo:
     return self._end_time
 
   @property
-  def finalization_block_int(self):
+  def finalization_block_number(self):
     '''Ethereum block int in which the Market was Finalized.
 
     Returns int or None
@@ -331,7 +326,7 @@ class MarketInfo:
     return self._finalization_time
 
   @property
-  def last_trade_block_int(self):
+  def last_trade_block_number(self):
     '''Ethereum block int in which the last trade occurred for this Market.
 
     Returns int or None
