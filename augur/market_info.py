@@ -1,3 +1,8 @@
+from datetime import datetime
+from decimal import Decimal
+
+from reporting_state import REPORTING_STATE
+
 class MarketInfo:
   def __init__(self, id, universe, marketType, numOutcomes, minPrice, maxPrice,
       cumulativeScale, author, creationTime, creationBlock, creationFee,
@@ -13,42 +18,42 @@ class MarketInfo:
     self._universe = universe
     self._marketType = marketType
     self._numOutcomes = numOutcomes
-    self._minPrice = minPrice
-    self._maxPrice = maxPrice
-    self._cumulativeScale = cumulativeScale
+    self._minPrice = Decimal(minPrice)
+    self._maxPrice = Decimal(maxPrice)
+    self._cumulativeScale = Decimal(cumulativeScale)
     self._author = author
-    self._creationTime = creationTime
+    self._creationTime = datetime.fromtimestamp(creationTime)
     self._creationBlock = creationBlock
-    self._creationFee = creationFee
-    self._settlementFee = settlementFee
-    self._reportingFeeRate = reportingFeeRate
-    self._marketCreatorFeeRate = marketCreatorFeeRate
-    self._marketCreatorFeesBalance = marketCreatorFeesBalance
+    self._creationFee = Decimal(creationFee)
+    self._settlementFee = Decimal(settlementFee)
+    self._reportingFeeRate = Decimal(reportingFeeRate)
+    self._marketCreatorFeeRate = Decimal(marketCreatorFeeRate)
+    self._marketCreatorFeesBalance = Decimal(marketCreatorFeesBalance)
     self._marketCreatorMailbox = marketCreatorMailbox
     self._marketCreatorMailboxOwner = marketCreatorMailboxOwner
-    self._initialReportSize = initialReportSize
+    self._initialReportSize = Decimal(initialReportSize)
     self._category = category
     self._tags = tags
-    self._volume = volume
-    self._openInterest = openInterest
-    self._outstandingShares = outstandingShares
+    self._volume = Decimal(volume)
+    self._openInterest = Decimal(openInterest)
+    self._outstandingShares = Decimal(outstandingShares)
     self._reportingState = reportingState
     self._forking = forking
     self._needsMigration = needsMigration
     self._feeWindow = feeWindow
-    self._endTime = endTime
+    self._endTime = Decimal(endTime)
     self._finalizationBlockNumber = finalizationBlockNumber
-    self._finalizationTime = finalizationTime
+    self._finalizationTime = Decimal(finalizationTime)
     self._lastTradeBlockNumber = lastTradeBlockNumber
     self._lastTradeTime = lastTradeTime
     self._description = description
     self._details = details
     self._scalarDenomination = scalarDenomination
     self._designatedReporter = designatedReporter
-    self._designatedReportStake = designatedReportStake
+    self._designatedReportStake = Decimal(designatedReportStake)
     self._resolutionSource = resolutionSource
-    self._numTicks = numTicks
-    self._tickSize = tickSize
+    self._numTicks = Decimal(numTicks)
+    self._tickSize = Decimal(tickSize)
     self._consensus = consensus
     self._outcomes = outcomes
 
