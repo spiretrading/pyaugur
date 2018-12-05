@@ -7,6 +7,7 @@ import websockets
 
 from .market_info import MarketInfo
 from .normalized_payout import NormalizedPayout
+from .outcome_info import OutcomeInfo
 from .reporting_state import ReportingState
 
 class AugurClient:
@@ -67,20 +68,25 @@ class AugurClient:
       'num_ticks': Decimal,
       'tick_size': Decimal,
       'consensus': NormalizedPayout,
+      'outcomes': OutcomeInfo,
     }
     for key, value in response_data.items():
       new_key = self._to_snake_case(key)
       if value is None:
         market_info_dict[new_key] = None
+      elif isinstance(value, (list, str)) and len(value) == 0:
+        market_info_dict[new_key] = value
       else:
         to_cast_type = casting_map.get(new_key, None)
         if to_cast_type is None:
           new_value = value
         elif (to_cast_type is MarketInfo.Type or
-            to_cast_type is ReportingState):
+              to_cast_type is ReportingState):
           new_value = to_cast_type[value.upper()]
         elif to_cast_type is NormalizedPayout:
           new_value = to_cast_type(*value)
+        elif to_cast_type is OutcomeInfo:
+          new_value = [OutcomeInfo(**x) for x in value]
         else:
           new_value = to_cast_type(value)
         market_info_dict[new_key] = new_value
