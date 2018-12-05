@@ -1,4 +1,6 @@
 class OutcomeInfo:
+  '''Details for individual outcomes of a Market.'''
+
   def __init__(self, id, volume, price, description):
     self._id = id
     self._volume = volume
@@ -17,7 +19,7 @@ class OutcomeInfo:
   def volume(self):
     '''Trading volume for this Outcome.
 
-    Returns str
+    Returns decimal.Decimal
     '''
     return self._volume
 
@@ -36,8 +38,6 @@ class OutcomeInfo:
   def description(self):
     '''Description for the Outcome.
 
-    Returns str or None
+    Returns str
     '''
     return self._description
-
-
