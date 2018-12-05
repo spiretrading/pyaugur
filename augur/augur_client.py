@@ -1,4 +1,5 @@
 import json
+import requests
 import websockets
 
 from market_info import MarketInfo
@@ -6,14 +7,13 @@ from market_info import MarketInfo
 class AugurClient:
   '''Client for connecting and interacting with an Augur Node.'''
 
-  def __init__(self, hostname, port,
-      universe='0xe991247b78f937d7b69cfc00f1a487a293557677'):
+  def __init__(self, hostname, port):
     self._hostname = hostname
     self._port = port
-    self._augur_http = self._build_url(hostname, port)
+    self._augur_ws = None
     self._node = None
     self._sequence_id = 0
-    self._universe = universe
+    self._contract_addresses = None
     self._is_open = False
 
   async def load_market_info(self, id):
@@ -29,8 +29,15 @@ class AugurClient:
 
   async def open(self):
     '''Connects to an Augur node.'''
-    self._node = await websockets.connect(self._augur_http)
-    self._is_open = True
+    self._augur_ws = ''.join(['ws://', self._hostname, ':', str(self._port)])
+    self._contract_addresses = self._get_contract_addresses()
+    try:
+      self._node = await websockets.connect(self._augur_ws)
+      self._is_open = True
+    except (websockets.exceptions.InvalidURI,
+            websockets.exceptions.InvalidHandshake,
+            OSError) as ws_error:
+      raise IOError(ws_error)
 
   def close(self):
     '''Disconnects from an Augur node.'''
@@ -40,13 +47,7 @@ class AugurClient:
     if not self._is_open:
       raise IOError('Client is not open.')
 
-  def _build_url(self, hostname, port, ssl=False):
-    self._require_is_open()
-    return ''.join(
-      ['ws://' if not ssl else 'wss://', hostname, ':', str(port)])
-
   async def _send_json_rpc(self, method, **params):
-    self._require_is_open()
     command_dict = {
       'jsonrpc': '2.0',
       'id': self._sequence_id,
@@ -54,10 +55,22 @@ class AugurClient:
       'params': params
     }
     self._sequence_id += 1
-    json_rpc = json.dumps(command_dict)
-    await self._node.send(json_rpc)
+    try:
+      json_rpc = json.dumps(command_dict)
+      await self._node.send(json_rpc)
+    except TypeError as send_error:
+      raise IOError(send_error)
 
   async def _get_response(self):
-    self._require_is_open()
-    response = json.loads(await self._node.recv())
+    try:
+      response = json.loads(await self._node.recv())
+    except websockets.exceptions.ConnectionClosed as error:
+      raise IOError(error)
     return response['result']
+
+  def _get_contract_addresses(self):
+    try:
+      with open('addresses.json') as f:
+        return json.load(f)
+    except OSError as file_error:
+      raise IOError(file_error)

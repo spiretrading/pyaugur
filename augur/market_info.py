@@ -41,7 +41,7 @@ class MarketInfo:
     self._forking = forking
     self._needsMigration = needsMigration
     self._feeWindow = feeWindow
-    self._endTime = Decimal(endTime)
+    self._endTime = datetime.fromtimestamp(endTime)
     self._finalizationBlockNumber = finalizationBlockNumber
     self._finalizationTime = Decimal(finalizationTime)
     self._lastTradeBlockNumber = lastTradeBlockNumber
