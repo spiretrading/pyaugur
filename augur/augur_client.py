@@ -87,7 +87,7 @@ class AugurClient:
       to_cast_type = casting_map.get(new_key, None)
       if not value:
         if to_cast_type is list:
-          new_value = [x for x in value if x is not None]
+          new_value = [index for index in value if index is not None]
         elif to_cast_type is str:
           new_value = '' if not value else value
         else:
@@ -101,9 +101,9 @@ class AugurClient:
           value['payout'] = list()
         new_value = to_cast_type(value['isInvalid'], value['payout'])
       elif to_cast_type is OutcomeInfo:
-        for x in value:
-          if not x['description']:
-            x['description'] = ''
+        for outcome_info in value:
+          if not outcome_info['description']:
+            outcome_info['description'] = ''
         new_value = [OutcomeInfo(**properties) for properties in value]
       elif to_cast_type is datetime:
         # Augur can store timestamps in microseconds which will raise an
