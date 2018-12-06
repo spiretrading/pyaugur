@@ -46,17 +46,24 @@ class AugurClient:
       return None
     market_info_dict = {}
     casting_map = {
+      'id': str,
+      'universe': str,
       'market_type': MarketInfo.Type,
       'min_price': Decimal,
       'max_price': Decimal,
       'cumulative_scale': Decimal,
+      'author': str,
       'creation_time': datetime,
       'creation_fee': Decimal,
       'settlement_fee': Decimal,
       'reporting_fee_rate': Decimal,
       'market_creator_fee_rate': Decimal,
       'market_creator_fees_balance': Decimal,
+      'market_creator_mailbox': str,
+      'market_creator_mailbox_owner': str,
       'initial_report_size': Decimal,
+      'category': str,
+      'tags': list,
       'volume': Decimal,
       'open_interest': Decimal,
       'outstanding_shares': Decimal,
@@ -64,7 +71,12 @@ class AugurClient:
       'end_time': datetime,
       'finalization_time': datetime,
       'last_trade_time': datetime,
+      'description': str,
+      'details': str,
+      'scalar_denomination': str,
+      'designated_reporter': str,
       'designated_report_stake': Decimal,
+      'resolution_source': str,
       'num_ticks': Decimal,
       'tick_size': Decimal,
       'consensus': NormalizedPayout,
@@ -72,29 +84,29 @@ class AugurClient:
     }
     for key, value in response_data.items():
       new_key = self._to_snake_case(key)
-      if value is None:
-        market_info_dict[new_key] = None
-      elif isinstance(value, list):
-        market_info_dict[new_key] = [x for x in value if x is not None]
+      to_cast_type = casting_map.get(new_key, None)
+      if not value:
+        if to_cast_type is list:
+          new_value = [x for x in value if x is not None]
+        elif to_cast_type is str:
+          new_value = '' if not value else value
+      elif to_cast_type is None:
+        new_value = value
+      elif to_cast_type is MarketInfo.Type or to_cast_type is ReportingState:
+        new_value = to_cast_type[value.upper()]
+      elif to_cast_type is NormalizedPayout:
+        new_value = to_cast_type(*value)
+      elif to_cast_type is OutcomeInfo:
+        new_value = [OutcomeInfo(**properties) for properties in value]
+      elif to_cast_type is datetime:
+        # Augur can store timestamps in microseconds which will raise an
+        # OSError for datetime.fromtimestamp, which requires the timestamp
+        # be in seconds.
+        new_value = to_cast_type.fromtimestamp(int(str(value)[:10]))
       else:
-        to_cast_type = casting_map.get(new_key, None)
-        if to_cast_type is None:
-          new_value = value
-        elif (to_cast_type is MarketInfo.Type or
-            to_cast_type is ReportingState):
-          new_value = to_cast_type[value.upper()]
-        elif to_cast_type is NormalizedPayout:
-          new_value = to_cast_type(*value)
-        elif to_cast_type is OutcomeInfo:
-          new_value = [OutcomeInfo(**x) for x in value]
-        elif to_cast_type is datetime:
-          # Augur can store timestamps in microseconds which will raise an
-          # OSError for datetime.fromtimestamp, which requires the timestamp
-          # be in seconds.
-          new_value = to_cast_type.fromtimestamp(int(str(value)[:10]))
-        else:
+        if value:
           new_value = to_cast_type(value)
-        market_info_dict[new_key] = new_value
+      market_info_dict[new_key] = new_value
     return MarketInfo(**market_info_dict)
 
   async def open(self):
