@@ -90,13 +90,20 @@ class AugurClient:
           new_value = [x for x in value if x is not None]
         elif to_cast_type is str:
           new_value = '' if not value else value
+        else:
+          new_value = None
       elif to_cast_type is None:
         new_value = value
       elif to_cast_type is MarketInfo.Type or to_cast_type is ReportingState:
         new_value = to_cast_type[value.upper()]
       elif to_cast_type is NormalizedPayout:
-        new_value = to_cast_type(*value)
+        if not value['payout']:
+          value['payout'] = list()
+        new_value = to_cast_type(value['isInvalid'], value['payout'])
       elif to_cast_type is OutcomeInfo:
+        for x in value:
+          if not x['description']:
+            x['description'] = ''
         new_value = [OutcomeInfo(**properties) for properties in value]
       elif to_cast_type is datetime:
         # Augur can store timestamps in microseconds which will raise an
@@ -104,7 +111,6 @@ class AugurClient:
         # be in seconds.
         new_value = to_cast_type.fromtimestamp(int(str(value)[:10]))
       else:
-        if value:
           new_value = to_cast_type(value)
       market_info_dict[new_key] = new_value
     return MarketInfo(**market_info_dict)
