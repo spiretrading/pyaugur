@@ -50,7 +50,7 @@ class AugurClient:
       'min_price': Decimal,
       'max_price': Decimal,
       'cumulative_scale': Decimal,
-      'creation_time': datetime.fromtimestamp,
+      'creation_time': datetime,
       'creation_fee': Decimal,
       'settlement_fee': Decimal,
       'reporting_fee_rate': Decimal,
@@ -61,9 +61,9 @@ class AugurClient:
       'open_interest': Decimal,
       'outstanding_shares': Decimal,
       'reporting_state': ReportingState,
-      'end_time': datetime.fromtimestamp,
-      'finalization_time': datetime.fromtimestamp,
-      'last_trade_time': datetime.fromtimestamp,
+      'end_time': datetime,
+      'finalization_time': datetime,
+      'last_trade_time': datetime,
       'designated_report_stake': Decimal,
       'num_ticks': Decimal,
       'tick_size': Decimal,
@@ -74,19 +74,24 @@ class AugurClient:
       new_key = self._to_snake_case(key)
       if value is None:
         market_info_dict[new_key] = None
-      elif isinstance(value, (list, str)) and len(value) == 0:
-        market_info_dict[new_key] = value
+      elif isinstance(value, list):
+        market_info_dict[new_key] = [x for x in value if x is not None]
       else:
         to_cast_type = casting_map.get(new_key, None)
         if to_cast_type is None:
           new_value = value
         elif (to_cast_type is MarketInfo.Type or
-              to_cast_type is ReportingState):
+            to_cast_type is ReportingState):
           new_value = to_cast_type[value.upper()]
         elif to_cast_type is NormalizedPayout:
           new_value = to_cast_type(*value)
         elif to_cast_type is OutcomeInfo:
           new_value = [OutcomeInfo(**x) for x in value]
+        elif to_cast_type is datetime:
+          # Augur can store timestamps in microseconds which will raise an
+          # OSError for datetime.fromtimestamp, which requires the timestamp
+          # be in seconds.
+          new_value = to_cast_type.fromtimestamp(int(str(value)[:10]))
         else:
           new_value = to_cast_type(value)
         market_info_dict[new_key] = new_value
@@ -103,7 +108,7 @@ class AugurClient:
         'ws://{}:{}'.format(self._hostname, str(self._port)))
       self._is_open = True
     except (websockets.exceptions.InvalidURI,
-            websockets.exceptions.InvalidHandshake, OSError) as ws_error:
+        websockets.exceptions.InvalidHandshake, OSError) as ws_error:
       raise IOError(ws_error)
 
   def close(self):
