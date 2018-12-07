@@ -57,17 +57,20 @@ class AugurClient:
       response_data['lastTradeTime'] = (
         self._ensure_unix_timestamp(response_data['lastTradeTime']))
     # Ensure decimals default to None if needed.
-    response_data['initialReportSize'] = (
-      response_data['initialReportSize']
-      if response_data['initialReportSize'] else None)
-    response_data['finalizationBlockNumber'] = (
-      response_data['finalizationBlockNumber']
-      if response_data['finalizationBlockNumber'] else None)
-    response_data['lastTradeBlockNumber'] = (
-      response_data['lastTradeBlockNumber']
-      if response_data['lastTradeBlockNumber'] else None)
+    if response_data['initialReportSize']:
+      response_data['initialReportSize'] = (
+        Decimal(response_data['initialReportSize']))
+    if response_data['finalizationBlockNumber']:
+      response_data['finalizationBlockNumber'] = (
+        Decimal(response_data['finalizationBlockNumber']))
+    if response_data['lastTradeBlockNumber']:
+      response_data['lastTradeBlockNumber'] = (
+        Decimal(response_data['lastTradeBlockNumber']))
     # Ensure all None are omitted from tags.
-    response_data['tags'] = [tag for tag in response_data['tags'] if tag]
+    if response_data['tags']:
+      response_data['tags'] = [tag for tag in response_data['tags'] if tag]
+    else:
+      response_data['tags'] = []
     # Ensure enum types return None if not set.
     response_data['reportingState'] = (
       ReportingState[response_data['reportingState']]
@@ -84,7 +87,7 @@ class AugurClient:
       if response_data['resolutionSource'] else '')
     # Cast NormalizedPayout types.
     if not response_data['consensus']:
-      response_data['consensus'] = list()
+      response_data['consensus'] = []
     else:
       response_data['consensus'] = NormalizedPayout(
         response_data['consensus']['isInvalid'],
@@ -92,7 +95,7 @@ class AugurClient:
           if response_data['consensus']['payout'] else ''))
     # Cast OutcomeInfo types.
     if not response_data['outcomes']:
-      response_data['outcomes'] = list()
+      response_data['outcomes'] = []
     else:
       for index, outcome in enumerate(response_data['outcomes']):
         response_data['outcomes'][index] = OutcomeInfo(
@@ -144,6 +147,10 @@ class AugurClient:
       response_data['consensus'],
       response_data['outcomes'])
 
+  async def get_markets(self):
+    await self._send_json_rpc('getMarkets', universe='0x02149d40d255fceac54a3ee3899807b0539bad60')
+    return await self._get_response()
+
   async def open(self):
     '''Connects to an Augur node.
 
@@ -192,4 +199,7 @@ class AugurClient:
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
   def _ensure_unix_timestamp(self, timestamp):
-    return datetime.fromtimestamp(int(str(timestamp)[:10]))
+    try:
+      return datetime.fromtimestamp(timestamp)
+    except OSError:
+      return datetime.max
