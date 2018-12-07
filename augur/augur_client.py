@@ -44,76 +44,105 @@ class AugurClient:
     response_data = (await self._get_response())[0]
     if response_data is None:
       return None
-    market_info_dict = {}
-    casting_map = {
-      'id': str,
-      'universe': str,
-      'market_type': MarketInfo.Type,
-      'min_price': Decimal,
-      'max_price': Decimal,
-      'cumulative_scale': Decimal,
-      'author': str,
-      'creation_time': datetime,
-      'creation_fee': Decimal,
-      'settlement_fee': Decimal,
-      'reporting_fee_rate': Decimal,
-      'market_creator_fee_rate': Decimal,
-      'market_creator_fees_balance': Decimal,
-      'market_creator_mailbox': str,
-      'market_creator_mailbox_owner': str,
-      'initial_report_size': Decimal,
-      'category': str,
-      'tags': list,
-      'volume': Decimal,
-      'open_interest': Decimal,
-      'outstanding_shares': Decimal,
-      'reporting_state': ReportingState,
-      'end_time': datetime,
-      'finalization_time': datetime,
-      'last_trade_time': datetime,
-      'description': str,
-      'details': str,
-      'scalar_denomination': str,
-      'designated_reporter': str,
-      'designated_report_stake': Decimal,
-      'resolution_source': str,
-      'num_ticks': Decimal,
-      'tick_size': Decimal,
-      'consensus': NormalizedPayout,
-      'outcomes': OutcomeInfo,
-    }
-    for key, value in response_data.items():
-      new_key = self._to_snake_case(key)
-      to_cast_type = casting_map.get(new_key, None)
-      if not value:
-        if to_cast_type is list:
-          new_value = [index for index in value if index is not None]
-        elif to_cast_type is str:
-          new_value = '' if not value else value
-        else:
-          new_value = None
-      elif to_cast_type is None:
-        new_value = value
-      elif to_cast_type is MarketInfo.Type or to_cast_type is ReportingState:
-        new_value = to_cast_type[value.upper()]
-      elif to_cast_type is NormalizedPayout:
-        if not value['payout']:
-          value['payout'] = list()
-        new_value = to_cast_type(value['isInvalid'], value['payout'])
-      elif to_cast_type is OutcomeInfo:
-        for outcome_info in value:
-          if not outcome_info['description']:
-            outcome_info['description'] = ''
-        new_value = [OutcomeInfo(**properties) for properties in value]
-      elif to_cast_type is datetime:
-        # Augur can store timestamps in microseconds which will raise an
-        # OSError for datetime.fromtimestamp, which requires the timestamp
-        # be in seconds.
-        new_value = to_cast_type.fromtimestamp(int(str(value)[:10]))
-      else:
-          new_value = to_cast_type(value)
-      market_info_dict[new_key] = new_value
-    return MarketInfo(**market_info_dict)
+    # Ensure timestamps are in seconds.
+    response_data['creationTime'] = (
+      self._ensure_unix_timestamp(response_data['creationTime']))
+    response_data['endTime'] = (
+      self._ensure_unix_timestamp(response_data['endTime']))
+    # finalization_time and last_trade_time will default to None
+    if response_data['finalizationTime']:
+      response_data['finalizationTime'] = (
+        self._ensure_unix_timestamp(response_data['finalizationTime']))
+    if response_data['lastTradeTime']:
+      response_data['lastTradeTime'] = (
+        self._ensure_unix_timestamp(response_data['lastTradeTime']))
+    # Ensure decimals default to None if needed.
+    response_data['initialReportSize'] = (
+      response_data['initialReportSize']
+      if response_data['initialReportSize'] else None)
+    response_data['finalizationBlockNumber'] = (
+      response_data['finalizationBlockNumber']
+      if response_data['finalizationBlockNumber'] else None)
+    response_data['lastTradeBlockNumber'] = (
+      response_data['lastTradeBlockNumber']
+      if response_data['lastTradeBlockNumber'] else None)
+    # Ensure all None are omitted from tags.
+    response_data['tags'] = [tag for tag in response_data['tags'] if tag]
+    # Ensure enum types return None if not set.
+    response_data['reportingState'] = (
+      ReportingState[response_data['reportingState']]
+      if response_data['reportingState'] else None)
+    # Ensure string types default to empty strings.
+    response_data['details'] = (
+      response_data['details']
+      if response_data['details'] else '')
+    response_data['scalarDenomination'] = (
+      response_data['scalarDenomination']
+      if response_data['scalarDenomination'] else '')
+    response_data['resolutionSource'] = (
+      response_data['resolutionSource']
+      if response_data['resolutionSource'] else '')
+    # Cast NormalizedPayout types.
+    if not response_data['consensus']:
+      response_data['consensus'] = list()
+    else:
+      response_data['consensus'] = NormalizedPayout(
+        response_data['consensus']['isInvalid'],
+        (response_data['consensus']['payout']
+          if response_data['consensus']['payout'] else ''))
+    # Cast OutcomeInfo types.
+    if not response_data['outcomes']:
+      response_data['outcomes'] = list()
+    else:
+      for index, outcome in enumerate(response_data['outcomes']):
+        response_data['outcomes'][index] = OutcomeInfo(
+          outcome['id'],
+          Decimal(outcome['volume']),
+          Decimal(outcome['price']),
+          outcome['description'] if outcome['description'] else '')
+    return MarketInfo(
+      response_data['id'],
+      response_data['universe'],
+      MarketInfo.Type[response_data['marketType'].upper()],
+      response_data['numOutcomes'],
+      Decimal(response_data['minPrice']),
+      Decimal(response_data['maxPrice']),
+      Decimal(response_data['cumulativeScale']),
+      response_data['author'],
+      response_data['creationTime'],
+      response_data['creationBlock'],
+      Decimal(response_data['creationFee']),
+      Decimal(response_data['settlementFee']),
+      Decimal(response_data['reportingFeeRate']),
+      Decimal(response_data['marketCreatorFeeRate']),
+      Decimal(response_data['marketCreatorFeesBalance']),
+      response_data['marketCreatorMailbox'],
+      response_data['marketCreatorMailboxOwner'],
+      response_data['initialReportSize'],
+      response_data['category'],
+      response_data['tags'],
+      Decimal(response_data['volume']),
+      Decimal(response_data['openInterest']),
+      Decimal(response_data['outstandingShares']),
+      response_data['reportingState'],
+      response_data['forking'],
+      response_data['needsMigration'],
+      response_data['feeWindow'],
+      response_data['endTime'],
+      response_data['finalizationBlockNumber'],
+      response_data['finalizationTime'],
+      response_data['lastTradeBlockNumber'],
+      response_data['lastTradeTime'],
+      response_data['description'],
+      response_data['details'],
+      response_data['scalarDenomination'],
+      response_data['designatedReporter'],
+      response_data['designatedReportStake'],
+      response_data['resolutionSource'],
+      Decimal(response_data['numTicks']),
+      Decimal(response_data['tickSize']),
+      response_data['consensus'],
+      response_data['outcomes'])
 
   async def open(self):
     '''Connects to an Augur node.
@@ -161,3 +190,6 @@ class AugurClient:
   def _to_snake_case(self, text):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', text)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+  def _ensure_unix_timestamp(self, timestamp):
+    return datetime.fromtimestamp(int(str(timestamp)[:10]))
