@@ -41,104 +41,98 @@ class AugurClient:
     '''
     self._require_is_open()
     await self._send_json_rpc('getMarketsInfo', marketIds=[id])
-    response_data = (await self._get_response())[0]
-    if response_data is None:
+    data = (await self._get_response())[0]
+    if data is None:
       return None
-    # Ensure timestamps are valid.
-    response_data['creationTime'] = (
-      self._ensure_unix_timestamp(response_data['creationTime']))
-    response_data['endTime'] = (
-      self._ensure_unix_timestamp(response_data['endTime']))
-    # Ensure properties will default to None.
-    if response_data['finalizationTime']:
-      response_data['finalizationTime'] = (
-        self._ensure_unix_timestamp(response_data['finalizationTime']))
-    if response_data['lastTradeTime']:
-      response_data['lastTradeTime'] = (
-        self._ensure_unix_timestamp(response_data['lastTradeTime']))
-    if response_data['initialReportSize']:
-      response_data['initialReportSize'] = (
-        Decimal(response_data['initialReportSize']))
-    # Ensure all None are omitted from tags.
-    if response_data['tags']:
-      response_data['tags'] = [tag for tag in response_data['tags'] if tag]
-    else:
-      response_data['tags'] = []
-    # Ensure ReportingState return None if not set.
-    response_data['reportingState'] = (
-      ReportingState[response_data['reportingState']]
-      if response_data['reportingState'] else None)
-    # Ensure string types default to empty strings.
-    response_data['details'] = (
-      response_data['details']
-      if response_data['details'] else '')
-    response_data['scalarDenomination'] = (
-      response_data['scalarDenomination']
-      if response_data['scalarDenomination'] else '')
-    response_data['resolutionSource'] = (
-      response_data['resolutionSource']
-      if response_data['resolutionSource'] else '')
-    # Cast NormalizedPayout types.
-    if not response_data['consensus']:
-      response_data['consensus'] = None
-    else:
-      response_data['consensus'] = NormalizedPayout(
-        response_data['consensus']['isInvalid'],
-        (response_data['consensus']['payout']
-          if response_data['consensus']['payout'] else []))
-    # Cast OutcomeInfo types.
-    if not response_data['outcomes']:
-      response_data['outcomes'] = []
-    else:
-      for index, outcome in enumerate(response_data['outcomes']):
-        response_data['outcomes'][index] = OutcomeInfo(
-          outcome['id'],
-          Decimal(outcome['volume']),
-          Decimal(outcome['price']),
-          outcome['description'] if outcome['description'] else '')
+    # Everything above is good. -----------------------------------------------
+    data = {
+      'id': None,
+      'universe': None,
+      'market_type': None,
+      'num_outcomes': None,
+      'min_price': '0',
+      'max_price': '0',
+      'cumulative_scale': '0',
+      'author': None,
+      'creation_time': None,
+      'creation_block': None,
+      'creation_fee': '0',
+      'settlement_fee': '0',
+      'reporting_fee_rate': '0',
+      'market_creator_fee_rate': '0',
+      'market_creator_fees_balance': '0',
+      'market_creator_mailbox': None,
+      'market_creator_mailbox_owner': None,
+      'initial_report_size': None,
+      'category': None,
+      'tags': ['test', 'test2', None, 'test3'],
+      'volume': '0',
+      'open_interest': '0',
+      'outstanding_shares': '0',
+      'reporting_state': 'pre_reporting',
+      'forking': None,
+      'needs_migration': None,
+      'fee_window': None,
+      'end_time': None,
+      'finalization_block_number': None,
+      'finalization_time': None,
+      'last_trade_block_number': None,
+      'last_trade_time': None,
+      'description': None,
+      'details': None,
+      'scalar_denomination': None,
+      'designated_reporter': None,
+      'designated_report_stake': None,
+      'resolution_source': None,
+      'num_ticks': None,
+      'tick_size': None,
+      'consensus': None,
+      'outcomes': None
+    }
+    # Properties should default to string.
     return MarketInfo(
-      response_data['id'],
-      response_data['universe'],
-      MarketInfo.Type[response_data['marketType'].upper()],
-      response_data['numOutcomes'],
-      Decimal(response_data['minPrice']),
-      Decimal(response_data['maxPrice']),
-      Decimal(response_data['cumulativeScale']),
-      response_data['author'],
-      response_data['creationTime'],
-      response_data['creationBlock'],
-      Decimal(response_data['creationFee']),
-      Decimal(response_data['settlementFee']),
-      Decimal(response_data['reportingFeeRate']),
-      Decimal(response_data['marketCreatorFeeRate']),
-      Decimal(response_data['marketCreatorFeesBalance']),
-      response_data['marketCreatorMailbox'],
-      response_data['marketCreatorMailboxOwner'],
-      response_data['initialReportSize'],
-      response_data['category'],
-      response_data['tags'],
-      Decimal(response_data['volume']),
-      Decimal(response_data['openInterest']),
-      Decimal(response_data['outstandingShares']),
-      response_data['reportingState'],
-      response_data['forking'],
-      response_data['needsMigration'],
-      response_data['feeWindow'],
-      response_data['endTime'],
-      response_data['finalizationBlockNumber'],
-      response_data['finalizationTime'],
-      response_data['lastTradeBlockNumber'],
-      response_data['lastTradeTime'],
-      response_data['description'],
-      response_data['details'],
-      response_data['scalarDenomination'],
-      response_data['designatedReporter'],
-      Decimal(response_data['designatedReportStake']),
-      response_data['resolutionSource'],
-      Decimal(response_data['numTicks']),
-      Decimal(response_data['tickSize']),
-      response_data['consensus'],
-      response_data['outcomes'])
+      self._ensure_string(data['id']),
+      self._ensure_string(data['universe']),
+      MarketInfo.Type[data['market_type']] if data['market_type'] else None,
+      data['num_outcomes'],
+      Decimal(data['min_price']),
+      Decimal(data['max_price']),
+      Decimal(data['cumulative_scale']),
+      self._ensure_string(data['author']),
+      self._ensure_unix_timestamp(data['creation_time']),
+      data['creation_block'],
+      Decimal(data['creation_fee']),
+      Decimal(data['settlement_fee']),
+      Decimal(data['reporting_fee_rate']),
+      Decimal(data['market_creator_fee_rate']),
+      Decimal(data['market_creator_fees_balance']),
+      self._ensure_string(data['market_creator_mailbox']),
+      data['market_creator_mailbox_owner'],
+      self._ensure_decimal(data['initial_report_size']),
+      data['category'],
+      [tag for tag in data['tags'] if tag] if data['tags'] else [],
+      Decimal(data['volume']),
+      Decimal(data['open_interest']),
+      Decimal(data['outstanding_shares']),
+      ReportingState[data['reporting_state'].upper()],
+      data['forking'],
+      data['needs_migration'],
+      data['fee_window'],
+      self._ensure_unix_timestamp(data['end_time']),
+      data['finalization_block_number'],
+      self._ensure_unix_timestamp(data['finalization_time']),
+      data['last_trade_block_number'],
+      self._ensure_unix_timestamp(data['last_trade_time']),
+      self._ensure_string(data['description']),
+      data['details'],
+      data['scalar_denomination'],
+      self._ensure_string(data['designated_reporter']),
+      self._ensure_decimal(data['designated_report_stake']),
+      data['resolution_source'],
+      self._ensure_decimal(data['num_ticks']),
+      self._ensure_decimal(data['tick_size']),
+      data['consensus'],
+      data['outcomes'])
 
   async def open(self):
     '''Connects to an Augur node.
@@ -189,6 +183,12 @@ class AugurClient:
 
   def _ensure_unix_timestamp(self, timestamp):
     try:
-      return datetime.fromtimestamp(timestamp)
+      return datetime.fromtimestamp(timestamp) if timestamp else None
     except OSError:
       return datetime.max
+
+  def _ensure_string(self, value):
+    return value if value else ''
+
+  def _ensure_decimal(self, value):
+    return Decimal(value) if value else None
