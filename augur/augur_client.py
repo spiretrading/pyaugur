@@ -147,10 +147,6 @@ class AugurClient:
       response_data['consensus'],
       response_data['outcomes'])
 
-  async def get_markets(self):
-    await self._send_json_rpc('getMarkets', universe='0x02149d40d255fceac54a3ee3899807b0539bad60')
-    return await self._get_response()
-
   async def open(self):
     '''Connects to an Augur node.
 
