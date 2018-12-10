@@ -44,95 +44,50 @@ class AugurClient:
     data = (await self._get_response())[0]
     if data is None:
       return None
-    # Everything above is good. -----------------------------------------------
-    data = {
-      'id': None,
-      'universe': None,
-      'market_type': None,
-      'num_outcomes': None,
-      'min_price': '0',
-      'max_price': '0',
-      'cumulative_scale': '0',
-      'author': None,
-      'creation_time': None,
-      'creation_block': None,
-      'creation_fee': '0',
-      'settlement_fee': '0',
-      'reporting_fee_rate': '0',
-      'market_creator_fee_rate': '0',
-      'market_creator_fees_balance': '0',
-      'market_creator_mailbox': None,
-      'market_creator_mailbox_owner': None,
-      'initial_report_size': None,
-      'category': None,
-      'tags': ['test', 'test2', None, 'test3'],
-      'volume': '0',
-      'open_interest': '0',
-      'outstanding_shares': '0',
-      'reporting_state': 'pre_reporting',
-      'forking': None,
-      'needs_migration': None,
-      'fee_window': None,
-      'end_time': None,
-      'finalization_block_number': None,
-      'finalization_time': None,
-      'last_trade_block_number': None,
-      'last_trade_time': None,
-      'description': None,
-      'details': None,
-      'scalar_denomination': None,
-      'designated_reporter': None,
-      'designated_report_stake': None,
-      'resolution_source': None,
-      'num_ticks': None,
-      'tick_size': None,
-      'consensus': None,
-      'outcomes': None
-    }
-    # Properties should default to string.
     return MarketInfo(
       self._ensure_string(data['id']),
       self._ensure_string(data['universe']),
-      MarketInfo.Type[data['market_type']] if data['market_type'] else None,
-      data['num_outcomes'],
-      Decimal(data['min_price']),
-      Decimal(data['max_price']),
-      Decimal(data['cumulative_scale']),
+      MarketInfo.Type[data['marketType'].upper()],
+      data['numOutcomes'],
+      Decimal(data['minPrice']),
+      Decimal(data['maxPrice']),
+      Decimal(data['cumulativeScale']),
       self._ensure_string(data['author']),
-      self._ensure_unix_timestamp(data['creation_time']),
-      data['creation_block'],
-      Decimal(data['creation_fee']),
-      Decimal(data['settlement_fee']),
-      Decimal(data['reporting_fee_rate']),
-      Decimal(data['market_creator_fee_rate']),
-      Decimal(data['market_creator_fees_balance']),
-      self._ensure_string(data['market_creator_mailbox']),
-      data['market_creator_mailbox_owner'],
-      self._ensure_decimal(data['initial_report_size']),
-      data['category'],
+      self._ensure_unix_timestamp(data['creationTime']),
+      data['creationBlock'],
+      Decimal(data['creationFee']),
+      Decimal(data['settlementFee']),
+      Decimal(data['reportingFeeRate']),
+      Decimal(data['marketCreatorFeeRate']),
+      Decimal(data['marketCreatorFeesBalance']),
+      self._ensure_string(data['marketCreatorMailbox']),
+      data['marketCreatorMailboxOwner'],
+      self._ensure_decimal_default_none(data['initialReportSize']),
+      self._ensure_string(data['category']),
       [tag for tag in data['tags'] if tag] if data['tags'] else [],
-      Decimal(data['volume']),
-      Decimal(data['open_interest']),
-      Decimal(data['outstanding_shares']),
-      ReportingState[data['reporting_state'].upper()],
-      data['forking'],
-      data['needs_migration'],
-      data['fee_window'],
-      self._ensure_unix_timestamp(data['end_time']),
-      data['finalization_block_number'],
-      self._ensure_unix_timestamp(data['finalization_time']),
-      data['last_trade_block_number'],
-      self._ensure_unix_timestamp(data['last_trade_time']),
+      self._ensure_decimal_default_none(data['volume']),
+      self._ensure_decimal_default_none(data['openInterest']),
+      self._ensure_decimal_default_none(data['outstandingShares']),
+      ReportingState[data['reportingState'].upper()],
+      bool(data['forking']),
+      bool(data['needsMigration']),
+      self._ensure_string(data['feeWindow']),
+      self._ensure_unix_timestamp(data['endTime']),
+      data['finalizationBlockNumber'],
+      self._ensure_unix_timestamp_default_none(data['finalizationTime']),
+      data['lastTradeBlockNumber'],
+      self._ensure_unix_timestamp_default_none(data['lastTradeTime']),
       self._ensure_string(data['description']),
       data['details'],
-      data['scalar_denomination'],
-      self._ensure_string(data['designated_reporter']),
-      self._ensure_decimal(data['designated_report_stake']),
-      data['resolution_source'],
-      self._ensure_decimal(data['num_ticks']),
-      self._ensure_decimal(data['tick_size']),
-      data['consensus'],
-      data['outcomes'])
+      data['scalarDenomination'],
+      self._ensure_string(data['designatedReporter']),
+      Decimal(data['designatedReportStake']),
+      data['resolutionSource'],
+      Decimal(data['numTicks']),
+      Decimal(data['tickSize']),
+      self._ensure_normalized_payout(data['consensus']),
+      ([self._ensure_outcome_info(outcome)
+        for outcome in data['outcomes'] if outcome]))
 
   async def open(self):
     '''Connects to an Augur node.
@@ -183,12 +138,31 @@ class AugurClient:
 
   def _ensure_unix_timestamp(self, timestamp):
     try:
-      return datetime.fromtimestamp(timestamp) if timestamp else None
+      return datetime.fromtimestamp(timestamp)
     except OSError:
       return datetime.max
+
+  def _ensure_unix_timestamp_default_none(self, timestamp):
+    return self._ensure_unix_timestamp(timestamp) if timestamp else None
 
   def _ensure_string(self, value):
     return value if value else ''
 
-  def _ensure_decimal(self, value):
+  def _ensure_decimal_default_none(self, value):
     return Decimal(value) if value else None
+
+  def _ensure_normalized_payout(self, value):
+    if value is None:
+      return None
+    default_decimal_list = []
+    for payout in value['payout']:
+      if payout:
+        default_decimal_list.append(Decimal(payout))
+    return NormalizedPayout(value['isInvalid'], default_decimal_list)
+
+  def _ensure_outcome_info(self, value):
+    return OutcomeInfo(
+      value['id'],
+      Decimal(value['volume']),
+      Decimal(value['price']),
+      self._ensure_string(value['description']))
