@@ -25,21 +25,21 @@ def _ensure_string(value):
 def _ensure_decimal_default_to_none(value):
   return Decimal(value) if value else None
 
-def _ensure_normalized_payout(value):
-  if value is None:
+def _ensure_normalized_payout(object_dict):
+  if object_dict is None:
     return None
   default_decimal_list = []
-  for payout in value['payout']:
+  for payout in object_dict['payout']:
     if payout:
       default_decimal_list.append(Decimal(payout))
-  return NormalizedPayout(value['isInvalid'], default_decimal_list)
+  return NormalizedPayout(object_dict['isInvalid'], default_decimal_list)
 
-def _ensure_outcome_info(value):
+def _ensure_outcome_info(object_dict):
   return OutcomeInfo(
-    value['id'],
-    Decimal(value['volume']),
-    Decimal(value['price']),
-    _ensure_string(value['description']))
+    object_dict['id'],
+    Decimal(object_dict['volume']),
+    Decimal(object_dict['price']),
+    _ensure_string(object_dict['description']))
 
 class AugurClient:
   '''Client for connecting and interacting with an Augur Node.'''
