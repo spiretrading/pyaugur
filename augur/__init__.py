@@ -1,3 +1,4 @@
+from .augur_client import AugurClient
 from .market_info import MarketInfo
 from .normalized_payout import NormalizedPayout
 from .outcome_info import OutcomeInfo
