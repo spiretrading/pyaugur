@@ -7,7 +7,7 @@ class MarketInfo:
     '''Indicates the type of a Market.'''
 
     '''A Market with only two potential outcomes.'''
-    YES_NO = auto()
+    YESNO = auto()
 
     '''A Market containing more than two potential outcomes, but no more than 8.
     '''
@@ -23,8 +23,8 @@ class MarketInfo:
       market_creator_fees_balance, market_creator_mailbox,
       market_creator_mailbox_owner, initial_report_size, category, tags, volume,
       open_interest, outstanding_shares, reporting_state, forking,
-      needs_migration, fee_window, end_time, finalization_block_int,
-      finalization_time, last_trade_block_int, last_trade_time, description,
+      needs_migration, fee_window, end_time, finalization_block_number,
+      finalization_time, last_trade_block_number, last_trade_time, description,
       details, scalar_denomination, designated_reporter,
       designated_report_stake, resolution_source, num_ticks, tick_size,
       consensus, outcomes):
@@ -56,9 +56,9 @@ class MarketInfo:
     self._needs_migration = needs_migration
     self._fee_window = fee_window
     self._end_time = end_time
-    self._finalization_block_int = finalization_block_int
+    self._finalization_block_number = finalization_block_number
     self._finalization_time = finalization_time
-    self._last_trade_block_int = last_trade_block_int
+    self._last_trade_block_number = last_trade_block_number
     self._last_trade_time = last_trade_time
     self._description = description
     self._details = details
@@ -310,12 +310,12 @@ class MarketInfo:
     return self._end_time
 
   @property
-  def finalization_block_int(self):
+  def finalization_block_number(self):
     '''Ethereum block int in which the Market was Finalized.
 
     Returns int or None
     '''
-    return self._finalization_block_int
+    return self._finalization_block_number
 
   @property
   def finalization_time(self):
@@ -326,12 +326,12 @@ class MarketInfo:
     return self._finalization_time
 
   @property
-  def last_trade_block_int(self):
+  def last_trade_block_number(self):
     '''Ethereum block int in which the last trade occurred for this Market.
 
     Returns int or None
     '''
-    return self._last_trade_block_int
+    return self._last_trade_block_number
 
   @property
   def last_trade_time(self):
