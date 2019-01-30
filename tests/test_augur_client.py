@@ -23,7 +23,7 @@ class TestAugurClient(unittest.TestCase):
     augur_host = 'localhost'
     augur_port = 9001
     ethereum = Web3(WebsocketProvider('wss://rinkeby.augur.net/ethereum-ws'))
-    self.client = AugurClient(augur_host, augur_port, ethereum=ethereum)
+    self.client = AugurClient(augur_host, augur_port, ethereum_client=ethereum)
     self.loop.run_until_complete(self.client.open())
 
   def test_load_market_info(self):
@@ -32,6 +32,15 @@ class TestAugurClient(unittest.TestCase):
     market_info = self.loop.run_until_complete(
       self.client.load_market_info(market_id))
     self.assertEqual(market_info.id, market_id)
+
+  def test_get_market_id_from_transaction_hash(self):
+    hash = '0xc9c4098209341e4490854f079918963ba54233e976c59f5bf70b0d0304ed70b3'
+    transaction = self.client.load_transaction_from_hash(hash)
+    self.assertEqual(
+      transaction.orderId.hex(),
+      '5ece8c9d739bcd5046a3196808e56775d3268fd12ceaf70c728fd90bae62f5ed')
+    market_id = self.client.load_market_id_from_order_id(transaction.orderId)
+    self.assertEqual(market_id, '0x75EC1F1a3356517908eCCb5f6e4FaC619C68bA99')
 
 if __name__ == '__main__':
   unittest.main()
