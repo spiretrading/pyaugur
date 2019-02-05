@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime
 from decimal import Decimal
 import json
+import threading
 
 import requests
 import websockets
@@ -65,9 +66,16 @@ class AugurClient:
     self._ethereum_client = ethereum_client
     self._augur_ws = None
     self._sequence_id = 0
+    self._latest_block = 0
     self._addresses = None
-    self._latest_block = self._ethereum_client.eth.blockNumber
+    self._network_id = 1
     self._is_open = False
+
+  @property
+  def network_id(self):
+    '''Returns the Augur node network id'''
+    self._require_is_open()
+    return self._network_id
 
   @property
   def contracts(self):
@@ -150,58 +158,41 @@ class AugurClient:
       ([ensure_outcome_info(outcome)
         for outcome in data['outcomes'] if outcome]))
 
-  async def start_historical_event_listener(self, event_name_list,
-      current_block, on_event, increment_block=1000):
-    '''Polls for all Augur events starting at from_block. Once the latest block
-    has been reached, the loop will close.
+  def filter_blocks(self, start_block, end_block, filter, handler,
+      increment=1000):
+    '''Retrieve all event logs from the start_block to the end_block. Once the
+    end block has been reached, filter_blocks will start a realtime listener to
+    run the handler everytime a new event occurs.
 
     Args:
-      event_name_list (list[string]): List containing names of Augur events.
-      current_block (int): Ethereum block to start listener from.
-      on_event (callback function): Function to run when an Augur event occurs.
-      increment_block (int): The number of blocks from the current_block to
-                             create a range of blocks to filter from. There are
-                             many blocks that will not contain an Augur event,
-                             so setting this number to a high value will search
-                             from a larger pool of blocks each iteration.
+      start_block (int): Starting block number.
+      end_block (int): Ending block number. Can also be the string 'latest'
+                       which represents the latest Ethereum block.
+      filter (dict): Dictionary containing filter parameters.
+      handler (callback): Callback function for when an event log is found in
+                          the current block.
+      increment (int): Specifies the range of blocks from the current_block to
+                       look for Augur logs.
 
-    Raise:
-      IOError: If there is an issue connecting to the Augur node.
+    Raises:
+      IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
-    tasks = [self._start_new_block_listener(),
-             self._fetch_historical_events(event_name_list, current_block,
-                                           on_event, increment_block)]
-    # Terminate tasks once the historical listener has completed.
-    _, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-    for task in pending:
-      task.cancel()
-
-  async def start_event_listener(self, event_name_list, on_event):
-    '''Polls for new Augur events.
-
-    Args:
-      event_name_list (list[string]): List containing names of Augur events.
-      on_event (callback function): Function to run when an Augur event occurs.
-
-    Raise:
-      IOError: If there is an issue connecting to the Augur node.
-    '''
-    self._require_is_open()
-    ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-    websocket = await websockets.connect(ethereum_uri)
-    topic_list = [self._event_name_to_signature_map[event_name]
-                  for event_name in event_name_list]
-    address = self._ethereum_client.toChecksumAddress(self._addresses['Augur'])
-    await self._send_request('eth_subscribe', websocket, [
-      'logs', {
-        'address': address,
-        'topics': [topic_list],
-        'fromBlock': 'latest'
-      }])
-    async for event in websocket:
-      event_json = json.loads(event)['params']['result']
-      on_event(event_json)
+    filter['address'] = self._ethereum_client.toChecksumAddress(
+      self._addresses['Augur'])
+    print('Fetching old blocks...')
+    for current_block in range(start_block, end_block, increment):
+      filter['fromBlock'] = current_block
+      filter['toBlock'] = current_block + increment
+      event_filter = self._ethereum_client.eth.filter(filter)
+      for event in event_filter.get_all_entries():
+        handler(event)
+    loop = asyncio.get_event_loop()
+    filter['fromBlock'] = hex(end_block)
+    filter.pop('toBlock', None)
+    ttt = threading.Thread(target=self._start_realtime_listener,
+      args=(loop, handler, filter), daemon=True)
+    ttt.start()
 
   def load_transaction_from_hash(self, hash):
     '''Retrieves the transaction data from its hash.
@@ -231,16 +222,20 @@ class AugurClient:
     get_market_id = self._contracts['Orders'].functions.getMarket
     return get_market_id(order_id).call()
 
-  async def open(self):
+  def open(self):
     '''Connects to an Augur node and associated resources.
 
     Raises:
       IOError: If there is an issue connecting to the Augur node.
     '''
     try:
-      self._augur_ws = await websockets.connect('ws://{}:{}'.format(
-        self._hostname, str(self._port)))
-      await self._load_sync_data()
+      loop = asyncio.get_event_loop()
+      ws_url = ''.join(['ws://', self._hostname, ':', str(self._port)])
+      self._augur_ws = loop.run_until_complete(websockets.connect(ws_url))
+      sync_data = loop.run_until_complete(self._send_request('getSyncData',
+        self._augur_ws))
+      self._addresses = sync_data['addresses']
+      self._network_id = sync_data['netId']
       abi_url = ('https://raw.githubusercontent.com/AugurProject/augur-core/'
                  'master/output/contracts/abi.json')
       contract_abi_request = requests.get(abi_url)
@@ -250,9 +245,10 @@ class AugurClient:
         self._contract_abi)
       self._event_signature_to_name_map = inverse_dict(
         self._event_name_to_signature_map)
+      self._latest_block = self._ethereum_client.eth.blockNumber
       self._is_open = True
     except (websockets.exceptions.InvalidURI,
-        websockets.exceptions.InvalidHandshake, OSError) as ws_error:
+            websockets.exceptions.InvalidHandshake, OSError) as ws_error:
       raise IOError(ws_error)
 
   def close(self):
@@ -287,10 +283,6 @@ class AugurClient:
     except websockets.exceptions.ConnectionClosed as response_error:
       raise IOError(response_error)
 
-  async def _load_sync_data(self):
-    sync_data = await self._send_request('getSyncData', self._augur_ws)
-    self._addresses = sync_data['addresses']
-
   def _event_signatures_from_abi(self, abi):
     event_name_to_signature_map = {}
     for abi_events in abi['Augur']:
@@ -322,33 +314,19 @@ class AugurClient:
         contracts[name] = contract
     return contracts
 
-  async def _start_new_block_listener(self):
-    self._require_is_open()
-    ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-    websocket = await websockets.connect(ethereum_uri)
-    await self._send_request('eth_subscribe', websocket, ['newHeads'])
-    await asyncio.sleep(0)
-    async for block_event in websocket:
-      block_event_json = json.loads(block_event)['params']['result']
-      self._latest_block = int(block_event_json['number'], 16)
+  def _start_realtime_listener(self, loop, handler, filter):
+    asyncio.set_event_loop(loop)
 
-  async def _fetch_historical_events(self, event_name_list, current_block,
-      on_event, increment_block=1000):
-    topic_list = []
-    for event_name in event_name_list:
-      event_map = self._event_name_to_signature_map.get(event_name, None)
-      if event_map:
-        topic_list.append(event_map)
-    while current_block < self._latest_block:
-      await asyncio.sleep(0)
-      event_filter = self._ethereum_client.eth.filter({
-        'address': self._ethereum_client.toChecksumAddress(
-          self._addresses['Augur']),
-        'topics': [topic_list],
-        'fromBlock': current_block,
-        'toBlock': current_block + increment_block
-      })
-      events = event_filter.get_all_entries()
-      for event in events:
-        on_event(event)
-      current_block += increment_block
+    async def run_listener(handler, filter):
+      print('Watching for new blocks...')
+      ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
+      try:
+        websocket = await websockets.connect(ethereum_uri)
+      except (websockets.exceptions.InvalidURI,
+              websockets.exceptions.InvalidHandshake, OSError) as ws_error:
+        raise IOError(ws_error)
+      await self._send_request('eth_subscribe', websocket, ['logs', filter])
+      async for event in websocket:
+        event_json = json.loads(event)['params']['result']
+        handler(event_json)
+    loop.run_until_complete(run_listener(handler, filter))
