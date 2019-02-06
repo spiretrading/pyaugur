@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime
 from decimal import Decimal
 import json
-import threading
 
 import requests
 import websockets
@@ -160,14 +159,12 @@ class AugurClient:
 
   def filter_blocks(self, start_block, end_block, filter, handler,
       increment=1000):
-    '''Retrieve all event logs from the start_block to the end_block. Once the
-    end block has been reached, filter_blocks will start a realtime listener to
-    run the handler everytime a new event occurs.
+    '''Retrieve all event logs specified in the filter from the start_block to
+    the end_block.
 
     Args:
       start_block (int): Starting block number.
-      end_block (int): Ending block number. Can also be the string 'latest'
-                       which represents the latest Ethereum block.
+      end_block (int): Ending block number.
       filter (dict): Dictionary containing filter parameters.
       handler (callback): Callback function for when an event log is found in
                           the current block.
@@ -178,20 +175,9 @@ class AugurClient:
       IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
-    filter['address'] = self._ethereum_client.toChecksumAddress(
-      self._addresses['Augur'])
-    for current_block in range(start_block, end_block, increment):
-      filter['fromBlock'] = current_block
-      filter['toBlock'] = current_block + increment
-      event_filter = self._ethereum_client.eth.filter(filter)
-      for event in event_filter.get_all_entries():
-        handler(event)
     loop = asyncio.get_event_loop()
-    filter['fromBlock'] = hex(end_block)
-    filter.pop('toBlock', None)
-    ttt = threading.Thread(target=self._start_realtime_listener,
-      args=(loop, handler, filter), daemon=True)
-    ttt.start()
+    loop.create_task(self._filter_blocks(start_block, end_block, filter,
+      handler, increment))
 
   def load_transaction_from_hash(self, hash):
     '''Retrieves the transaction data from its hash.
@@ -312,18 +298,13 @@ class AugurClient:
         contracts[name] = contract
     return contracts
 
-  def _start_realtime_listener(self, loop, handler, filter):
-    asyncio.set_event_loop(loop)
-
-    async def run_listener(handler, filter):
-      ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-      try:
-        websocket = await websockets.connect(ethereum_uri)
-      except (websockets.exceptions.InvalidURI,
-          websockets.exceptions.InvalidHandshake, OSError) as ws_error:
-        raise IOError(ws_error)
-      await self._send_request('eth_subscribe', websocket, ['logs', filter])
-      async for event in websocket:
-        event_json = json.loads(event)['params']['result']
-        handler(event_json)
-    loop.run_until_complete(run_listener(handler, filter))
+  async def _filter_blocks(self, start_block, end_block, filter, handler,
+      increment):
+    filter['address'] = self._ethereum_client.toChecksumAddress(
+      self._addresses['Augur'])
+    for current_block in range(start_block, end_block, increment):
+      filter['fromBlock'] = current_block
+      filter['toBlock'] = current_block + increment
+      events_filter = self._ethereum_client.eth.filter(filter)
+      events_filter.format_entry = handler
+      events_filter.get_all_entries()
