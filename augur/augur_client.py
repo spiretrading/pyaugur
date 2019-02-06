@@ -180,7 +180,6 @@ class AugurClient:
     self._require_is_open()
     filter['address'] = self._ethereum_client.toChecksumAddress(
       self._addresses['Augur'])
-    print('Fetching old blocks...')
     for current_block in range(start_block, end_block, increment):
       filter['fromBlock'] = current_block
       filter['toBlock'] = current_block + increment
@@ -245,10 +244,9 @@ class AugurClient:
         self._contract_abi)
       self._event_signature_to_name_map = inverse_dict(
         self._event_name_to_signature_map)
-      self._latest_block = self._ethereum_client.eth.blockNumber
       self._is_open = True
     except (websockets.exceptions.InvalidURI,
-            websockets.exceptions.InvalidHandshake, OSError) as ws_error:
+        websockets.exceptions.InvalidHandshake, OSError) as ws_error:
       raise IOError(ws_error)
 
   def close(self):
@@ -318,12 +316,11 @@ class AugurClient:
     asyncio.set_event_loop(loop)
 
     async def run_listener(handler, filter):
-      print('Watching for new blocks...')
       ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
       try:
         websocket = await websockets.connect(ethereum_uri)
       except (websockets.exceptions.InvalidURI,
-              websockets.exceptions.InvalidHandshake, OSError) as ws_error:
+          websockets.exceptions.InvalidHandshake, OSError) as ws_error:
         raise IOError(ws_error)
       await self._send_request('eth_subscribe', websocket, ['logs', filter])
       async for event in websocket:
