@@ -65,7 +65,6 @@ class AugurClient:
     self._ethereum_client = ethereum_client
     self._augur_ws = None
     self._sequence_id = 0
-    self._latest_block = 0
     self._addresses = None
     self._network_id = 1
     self._is_open = False
@@ -75,6 +74,12 @@ class AugurClient:
     '''Returns the Augur node network id'''
     self._require_is_open()
     return self._network_id
+
+  @property
+  def sync_data(self):
+    '''Returns information related to the connected Augur node.'''
+    self._require_is_open()
+    return self._sync_data
 
   @property
   def contracts(self):
@@ -214,13 +219,13 @@ class AugurClient:
       IOError: If there is an issue connecting to the Augur node.
     '''
     try:
-      loop = asyncio.get_event_loop()
       ws_url = ''.join(['ws://', self._hostname, ':', str(self._port)])
+      loop = asyncio.get_event_loop()
       self._augur_ws = loop.run_until_complete(websockets.connect(ws_url))
-      sync_data = loop.run_until_complete(self._send_request('getSyncData',
-        self._augur_ws))
-      self._addresses = sync_data['addresses']
-      self._network_id = sync_data['netId']
+      self._sync_data = loop.run_until_complete(
+        self._send_request('getSyncData', self._augur_ws))
+      self._addresses = self._sync_data['addresses']
+      self._network_id = self._sync_data['netId']
       abi_url = ('https://raw.githubusercontent.com/AugurProject/augur-core/'
                  'master/output/contracts/abi.json')
       contract_abi_request = requests.get(abi_url)
