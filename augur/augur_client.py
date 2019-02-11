@@ -311,5 +311,16 @@ class AugurClient:
       filter['fromBlock'] = current_block
       filter['toBlock'] = current_block + increment
       events_filter = self._ethereum_client.eth.filter(filter)
-      events_filter.format_entry = handler
-      events_filter.get_all_entries()
+      events = events_filter.get_all_entries()
+      for event in events:
+        await handler(event)
+    try:
+      ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
+      websocket = await websockets.connect(ethereum_uri)
+      filter['fromBlock'] = 'latest'
+      del filter['toBlock']
+      await self._send_request('eth_subscribe', websocket, ['logs', filter])
+      async for event in websocket:
+        await handler(event)
+    except websockets.exceptions.ConnectionClosed as response_error:
+      raise IOError(response_error)
