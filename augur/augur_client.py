@@ -311,16 +311,19 @@ class AugurClient:
       filter['fromBlock'] = current_block
       filter['toBlock'] = current_block + increment
       events_filter = self._ethereum_client.eth.filter(filter)
-      events = events_filter.get_all_entries()
-      for event in events:
-        await handler(event)
+      # Overrided format_entry to handler. When a entry that matches the filter
+      # is found, handler will be executed on each entry.
+      events_filter.format_entry = handler
+      events_filter.get_all_entries()
     try:
       ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-      websocket = await websockets.connect(ethereum_uri)
       filter['fromBlock'] = 'latest'
-      del filter['toBlock']
-      await self._send_request('eth_subscribe', websocket, ['logs', filter])
-      async for event in websocket:
-        await handler(event)
+      filter.pop('toBlock', None)
+      # Start websocket as a context manager to ensure that the websocket is
+      # closed when exiting.
+      async with websockets.connect(ethereum_uri) as websocket:
+        await self._send_request('eth_subscribe', websocket, ['logs', filter])
+        async for event in websocket:
+          handler(event)
     except websockets.exceptions.ConnectionClosed as response_error:
       raise IOError(response_error)
