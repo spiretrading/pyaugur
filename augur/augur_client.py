@@ -305,26 +305,57 @@ class AugurClient:
 
   async def _filter_blocks(self, start_block, end_block, filter, handler,
       increment):
+    if (start_block < 0) or (end_block < 0) or (increment < 0):
+      raise IOError('Block numbers and increments should be greater than 0.')
+    if start_block > end_block:
+      raise IOError('start_block must be less than the end_block.')
+    latest_block = self._ethereum_client.eth.blockNumber
+    if start_block > latest_block:
+      raise IOError('start_block has not been mined yet.')
     if end_block < increment:
-      increment = end_block
+      increment = end_block - start_block
+    if start_block == end_block:
+      start_block -= 1
+      increment = 1
     filter['address'] = self._ethereum_client.toChecksumAddress(
       self._addresses['Augur'])
-    for current_block in range(start_block, end_block, increment):
-      filter['fromBlock'] = current_block
-      filter['toBlock'] = current_block + increment
+    # _filter_block can accept an end_block greater than the current latest
+    # Ethereum block. In such a case, _filter_block will first traverse the
+    # blockchain until the latest Ethereum block determined at the time of
+    # execution. It will then listen for new blocks until the desired end_block
+    # has been reached.
+    last_old_block = latest_block if (end_block > latest_block) else end_block
+    for filter_from in range(start_block, last_old_block, increment):
+      filter['fromBlock'] = filter_from
+      filter_to = filter_from + increment
+      filter['toBlock'] = (last_old_block if
+        (filter_to > last_old_block) else filter_to)
       events_filter = self._ethereum_client.eth.filter(filter)
       events = events_filter.get_all_entries()
       for event in events:
         await asyncio.create_task(handler(event))
-    try:
+    # _filter_blocks subscribes to both newHeads and logs on the same websocket
+    # to keep track of any new blocks. If a new block arrives and it is the
+    # desired end_block, then _filter_blocks will close the websocket.
+    if end_block > latest_block:
       ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-      filter['fromBlock'] = 'latest'
-      filter.pop('toBlock', None)
-      # Start websocket as a context manager to ensure that the websocket is
-      # closed when exiting.
-      async with websockets.connect(ethereum_uri) as websocket:
-        await self._send_request('eth_subscribe', websocket, ['logs', filter])
-        async for event in websocket:
-          await asyncio.create_task(handler(event))
-    except websockets.exceptions.ConnectionClosed as response_error:
-      raise IOError(response_error)
+      filter['fromBlock'] = self._ethereum_client.toHex(last_old_block)
+      filter['toBlock'] = self._ethereum_client.toHex(end_block)
+      try:
+        async with websockets.connect(ethereum_uri) as websocket:
+          logs = await self._send_request('eth_subscribe', websocket,
+            ['logs', filter])
+          new_blocks = await self._send_request('eth_subscribe', websocket,
+            ['newHeads', {}])
+          async for event in websocket:
+            event_json = json.loads(event)['params']
+            event_subscription = event_json['subscription']
+            event_block = self._ethereum_client.toInt(
+              hexstr=event_json['result']['number'])
+            if event_subscription == logs:
+              await asyncio.create_task(handler(event))
+            if event_subscription == new_blocks:
+              if event_block >= end_block:
+                await websocket.close()
+      except websockets.exceptions.ConnectionClosed as response_error:
+        raise IOError(response_error)
