@@ -305,16 +305,17 @@ class AugurClient:
 
   async def _filter_blocks(self, start_block, end_block, filter, handler,
       increment):
+    if end_block < increment:
+      increment = end_block
     filter['address'] = self._ethereum_client.toChecksumAddress(
       self._addresses['Augur'])
     for current_block in range(start_block, end_block, increment):
       filter['fromBlock'] = current_block
       filter['toBlock'] = current_block + increment
       events_filter = self._ethereum_client.eth.filter(filter)
-      # Overrided format_entry to handler. When a entry that matches the filter
-      # is found, handler will be executed on each entry.
-      events_filter.format_entry = handler
-      events_filter.get_all_entries()
+      events = events_filter.get_all_entries()
+      for event in events:
+        await asyncio.create_task(handler(event))
     try:
       ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
       filter['fromBlock'] = 'latest'
@@ -324,6 +325,6 @@ class AugurClient:
       async with websockets.connect(ethereum_uri) as websocket:
         await self._send_request('eth_subscribe', websocket, ['logs', filter])
         async for event in websocket:
-          handler(event)
+          await asyncio.create_task(handler(event))
     except websockets.exceptions.ConnectionClosed as response_error:
       raise IOError(response_error)
