@@ -180,6 +180,12 @@ class AugurClient:
       IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
+    if (start_block < 0) or (end_block < 0) or (increment < 0):
+      raise IOError('Block numbers and increments should be greater than 0.')
+    if start_block > end_block:
+      raise IOError('start_block must be less than the end_block.')
+    if start_block > self._ethereum_client.eth.blockNumber:
+      raise IOError('start_block has not been mined yet.')
     loop = asyncio.get_event_loop()
     loop.create_task(self._filter_blocks(start_block, end_block, filter,
       handler, increment))
@@ -305,31 +311,18 @@ class AugurClient:
 
   async def _filter_blocks(self, start_block, end_block, filter, handler,
       increment):
-    if (start_block < 0) or (end_block < 0) or (increment < 0):
-      raise IOError('Block numbers and increments should be greater than 0.')
-    if start_block > end_block:
-      raise IOError('start_block must be less than the end_block.')
-    latest_block = self._ethereum_client.eth.blockNumber
-    if start_block > latest_block:
-      raise IOError('start_block has not been mined yet.')
-    if end_block < increment:
-      increment = end_block - start_block
-    if start_block == end_block:
-      start_block -= 1
-      increment = 1
-    filter['address'] = self._ethereum_client.toChecksumAddress(
-      self._addresses['Augur'])
     # _filter_block can accept an end_block greater than the current latest
     # Ethereum block. In such a case, _filter_block will first traverse the
     # blockchain until the latest Ethereum block determined at the time of
     # execution. It will then listen for new blocks until the desired end_block
     # has been reached.
-    last_old_block = latest_block if (end_block > latest_block) else end_block
+    filter['address'] = self._ethereum_client.toChecksumAddress(
+      self._addresses['Augur'])
+    latest_block = self._ethereum_client.eth.blockNumber
+    last_old_block = min(latest_block, end_block)
     for filter_from in range(start_block, last_old_block, increment):
       filter['fromBlock'] = filter_from
-      filter_to = filter_from + increment
-      filter['toBlock'] = (last_old_block if
-        (filter_to > last_old_block) else filter_to)
+      filter['toBlock'] = min(filter_from + increment, last_old_block)
       events_filter = self._ethereum_client.eth.filter(filter)
       events = events_filter.get_all_entries()
       for event in events:
@@ -350,11 +343,11 @@ class AugurClient:
           async for event in websocket:
             event_json = json.loads(event)['params']
             event_subscription = event_json['subscription']
-            event_block = self._ethereum_client.toInt(
-              hexstr=event_json['result']['number'])
             if event_subscription == logs:
               await asyncio.create_task(handler(event))
             if event_subscription == new_blocks:
+              event_block = self._ethereum_client.toInt(
+                hexstr=event_json['result']['number'])
               if event_block >= end_block:
                 await websocket.close()
       except websockets.exceptions.ConnectionClosed as response_error:
