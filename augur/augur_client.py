@@ -182,14 +182,12 @@ class AugurClient:
     self._require_is_open()
     if start_block < 0:
       raise IOError('start_block cannot be less than 0.')
-    if end_block < 0:
-      raise IOError('end_block cannot be less than 0.')
     if increment <= 0:
       raise IOError('increment cannot be less than or equal to 0.')
     if start_block > end_block:
       raise IOError('start_block cannot be larger than the end_block.')
     asyncio.get_event_loop().create_task(self._filter_blocks(start_block,
-      end_block, filter, handler, increment))
+      end_block, dict(filter), handler, increment))
 
   def load_transaction_from_hash(self, hash):
     '''Retrieves the transaction data from its hash.
@@ -317,15 +315,14 @@ class AugurClient:
     # blockchain until the latest Ethereum block determined at the time of
     # execution. It will then listen for new blocks until the desired end_block
     # has been reached.
-    filter_params = dict(filter)
-    filter_params['address'] = self._ethereum_client.toChecksumAddress(
+    filter['address'] = self._ethereum_client.toChecksumAddress(
       self._addresses['Augur'])
     latest_block = self._ethereum_client.eth.blockNumber
     last_old_block = min(latest_block, end_block)
     for filter_from in range(start_block, last_old_block, increment):
-      filter_params['fromBlock'] = filter_from
-      filter_params['toBlock'] = min(filter_from + increment, last_old_block)
-      events_filter = self._ethereum_client.eth.filter(filter_params)
+      filter['fromBlock'] = filter_from
+      filter['toBlock'] = min(filter_from + increment, last_old_block)
+      events_filter = self._ethereum_client.eth.filter(filter)
       for event in events_filter.get_all_entries():
         if asyncio.iscoroutinefunction(handler):
           await handler(event)
@@ -336,9 +333,9 @@ class AugurClient:
     # desired end_block, then _filter_blocks will close the websocket.
     if end_block > latest_block:
       ethereum_uri = self._ethereum_client.providers[0].endpoint_uri
-      filter_params['fromBlock'] = self._ethereum_client.toHex(start_block)
-      filter_params['toBlock'] = self._ethereum_client.toHex(end_block)
-      events_filter = self._ethereum_client.eth.filter(filter_params)
+      filter['fromBlock'] = self._ethereum_client.toHex(start_block)
+      filter['toBlock'] = self._ethereum_client.toHex(end_block)
+      events_filter = self._ethereum_client.eth.filter(filter)
       try:
         async with websockets.connect(ethereum_uri) as websocket:
           new_blocks = await self._send_request('eth_subscribe', websocket,
