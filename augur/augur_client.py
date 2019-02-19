@@ -180,13 +180,16 @@ class AugurClient:
       IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
-    if (start_block < 0) or (end_block < 0) or (increment < 0):
-      raise IOError('Block numbers or increment cannot be less than 0.')
+    if start_block < 0:
+      raise IOError('start_block cannot be less than 0.')
+    if end_block < 0:
+      raise IOError('end_block cannot be less than 0.')
+    if increment <= 0:
+      raise IOError('increment cannot be less than or equal to 0.')
     if start_block > end_block:
-      raise IOError('start_block must be less than the end_block.')
-    loop = asyncio.get_event_loop()
-    loop.create_task(self._filter_blocks(start_block, end_block, filter,
-      handler, increment))
+      raise IOError('start_block cannot be larger than the end_block.')
+    asyncio.get_event_loop().create_task(self._filter_blocks(start_block,
+      end_block, filter, handler, increment))
 
   def load_transaction_from_hash(self, hash):
     '''Retrieves the transaction data from its hash.
@@ -314,7 +317,7 @@ class AugurClient:
     # blockchain until the latest Ethereum block determined at the time of
     # execution. It will then listen for new blocks until the desired end_block
     # has been reached.
-    filter_params = filter
+    filter_params = dict(filter)
     filter_params['address'] = self._ethereum_client.toChecksumAddress(
       self._addresses['Augur'])
     latest_block = self._ethereum_client.eth.blockNumber
