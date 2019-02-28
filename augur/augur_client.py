@@ -51,17 +51,19 @@ def inverse_dict(kv_dict):
 class AugurClient:
   '''Client for connecting and interacting with an Augur Node.'''
 
-  def __init__(self, hostname, port, ethereum_client=None):
+  def __init__(self, hostname, port, abi_path, ethereum_client=None):
     '''Constructs the AugurClient.
 
     Args:
       hostname (str): Hostname for the Augur node.
       port (int): Listening port for the Augur node.
+      abi_path (string): Path to the file containing the Augur ABI.
       ethereum_client (Web3): Web3 object containing methods for interacting
                               with the Ethereum blockchain.
     '''
     self._hostname = hostname
     self._port = port
+    self._abi_path = abi_path
     self._ethereum_client = ethereum_client
     self._augur_ws = None
     self._sequence_id = 0
@@ -217,27 +219,22 @@ class AugurClient:
     get_market_id = self._contracts['Orders'].functions.getMarket
     return get_market_id(order_id).call()
 
-  def open(self):
+  async def open(self):
     '''Connects to an Augur node and associated resources.
 
     Raises:
       IOError: If there is an issue connecting to the Augur node.
     '''
     try:
-      ws_url = ''.join(['ws://', self._hostname, ':', str(self._port)])
-      loop = asyncio.get_event_loop()
-      self._augur_ws = loop.run_until_complete(websockets.connect(ws_url))
-      self._sync_data = loop.run_until_complete(
-        self._send_request('getSyncData', self._augur_ws))
+      self._augur_ws = await websockets.connect('ws://{}:{}'.format(
+        self._hostname, self._port))
+      self._sync_data = await self._send_request('getSyncData', self._augur_ws)
       self._addresses = self._sync_data['addresses']
       self._network_id = self._sync_data['netId']
-      abi_url = ('https://raw.githubusercontent.com/AugurProject/augur-core/'
-                 'master/output/contracts/abi.json')
-      contract_abi_request = requests.get(abi_url)
-      self._contract_abi = contract_abi_request.json()
-      self._contracts = self._contracts_from_abi(self._contract_abi)
+      json_abi = json.loads(open(self._abi_path, 'r').read())
+      self._contracts = self._contracts_from_abi(json_abi)
       self._event_name_to_signature_map = self._event_signatures_from_abi(
-        self._contract_abi)
+        json_abi)
       self._event_signature_to_name_map = inverse_dict(
         self._event_name_to_signature_map)
       self._is_open = True
