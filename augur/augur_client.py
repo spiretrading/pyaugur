@@ -65,7 +65,6 @@ class AugurClient:
     self._port = port
     self._abi_path = abi_path
     self._ethereum_client = ethereum_client
-    self._augur_ws = None
     self._sequence_id = 0
     self._addresses = None
     self._network_id = 1
@@ -115,8 +114,7 @@ class AugurClient:
       IOError: If there is an issue with communicating with the node.
     '''
     self._require_is_open()
-    data = (await self._send_request('getMarketsInfo', self._augur_ws,
-      dict(marketIds=[id])))[0]
+    data = (await self._send_request('getMarketsInfo', dict(marketIds=[id])))[0]
     if data is None:
       return None
     return MarketInfo(
@@ -226,9 +224,7 @@ class AugurClient:
       IOError: If there is an issue connecting to the Augur node.
     '''
     try:
-      self._augur_ws = await websockets.connect('ws://{}:{}'.format(
-        self._hostname, self._port))
-      self._sync_data = await self._send_request('getSyncData', self._augur_ws)
+      self._sync_data = await self._send_request('getSyncData')
       self._addresses = self._sync_data['addresses']
       self._network_id = self._sync_data['netId']
       json_abi = json.loads(open(self._abi_path, 'r').read())
@@ -245,16 +241,17 @@ class AugurClient:
   def close(self):
     '''Disconnects from an Augur node.'''
     self._require_is_open()
-    self._augur_ws.close()
     self._is_open = False
 
   def _require_is_open(self):
     if not self._is_open:
       raise IOError('Client is not open.')
 
-  async def _send_request(self, method, transport, params={}):
-    await self._send_rpc_message(method, transport, params)
-    return await self._get_rpc_response(transport)
+  async def _send_request(self, method, params={}):
+    async with websockets.connect('ws://{}:{}'.format(
+        self._hostname, self._port)) as websocket:
+      await self._send_rpc_message(method, websocket, params)
+      return await self._get_rpc_response(websocket)
 
   async def _send_rpc_message(self, method, transport, params):
     rpc_message = dict(jsonrpc='2.0', id=self._sequence_id, method=method,
@@ -335,8 +332,8 @@ class AugurClient:
       events_filter = self._ethereum_client.eth.filter(filter)
       try:
         async with websockets.connect(ethereum_uri) as websocket:
-          new_blocks = await self._send_request('eth_subscribe', websocket,
-            ['newHeads'])
+          await self._send_rpc_message('eth_subscribe', websocket, ['newHeads'])
+          await self._get_rpc_response(websocket)
           async for new_block in websocket:
             block_json = json.loads(new_block)['params']['result']
             block_number = self._ethereum_client.toInt(
